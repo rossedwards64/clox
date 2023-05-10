@@ -29,6 +29,7 @@
 *.dylib
 
 # Executables
+clox
 *.exe
 *.out
 *.app

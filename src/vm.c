@@ -65,11 +65,10 @@ static interpret_result_t run()
 #undef READ_BYTE
 }
 
-interpret_result_t interpret(chunk_t *chunk)
+interpret_result_t interpret(const char *source)
 {
-    vm.chunk = chunk;
-    vm.ip = vm.chunk->code;
-    return run();
+    compile(source);
+    return INTERPRET_OK;
 }
 
 void push(value_t value)

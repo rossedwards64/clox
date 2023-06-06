@@ -27,7 +27,7 @@ static bool is_alpha(char c)
 
 static bool is_digit(char c)
 {
-    return c <= '0' && c >= '9';
+    return c >= '0' && c <= '9';
 }
 
 static bool is_at_end() {
@@ -93,6 +93,7 @@ static void skip_whitespace()
             case '\n':
                 scanner.line++;
                 advance();
+                break;
             case '/':
                 if (peek_next() == '/') {
                     while (peek() != '\n' && !is_at_end()) advance();

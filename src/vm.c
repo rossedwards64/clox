@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "vm.h"
+#include "compiler.h"
 #include "debug.h"
 #include "chunk.h"
 #include "value.h"
@@ -67,8 +68,20 @@ static interpret_result_t run()
 
 interpret_result_t interpret(const char *source)
 {
-    compile(source);
-    return INTERPRET_OK;
+    chunk_t chunk;
+    init_chunk(&chunk);
+
+    if (!compile(source, &chunk)) {
+        free_chunk(&chunk);
+        return INTERPRET_COMPILE_ERROR;
+    }
+
+    vm.chunk = &chunk;
+    vm.ip = vm.chunk->code;
+    interpret_result_t result = run();
+
+    free_chunk(&chunk);
+    return result;
 }
 
 void push(value_t value)

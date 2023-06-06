@@ -194,6 +194,7 @@ token_t scan_token()
     if (is_digit(c)) return number();
 
     switch (c) {
+        // greater than is being scanned as left paren
         case '(': return make_token(TOKEN_LEFT_PAREN);
         case ')': return make_token(TOKEN_RIGHT_PAREN);
         case '{': return make_token(TOKEN_LEFT_BRACE);
@@ -205,10 +206,14 @@ token_t scan_token()
         case '+': return make_token(TOKEN_PLUS);
         case '/': return make_token(TOKEN_SLASH);
         case '*': return make_token(TOKEN_STAR);
+        case '!': return make_token(
+            match('=') ? TOKEN_BANG_EQUAL : TOKEN_BANG);
+        case '=': return make_token(
+            match('=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL);
         case '<': return make_token(
             match('=') ? TOKEN_LESS_EQUAL : TOKEN_LESS);
         case '>': return make_token(
-            match('=' ? TOKEN_GREATER_EQUAL : TOKEN_GREATER));
+            match('=') ? TOKEN_GREATER_EQUAL : TOKEN_GREATER);
         case '"': return string();
     }
 

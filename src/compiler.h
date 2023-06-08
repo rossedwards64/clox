@@ -5,4 +5,4 @@
 
 bool compile(const char *source, chunk_t *chunk);
 
-#endif // COMPILER_H_
+#endif// COMPILER_H_

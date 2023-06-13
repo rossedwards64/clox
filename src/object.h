@@ -23,6 +23,7 @@ struct obj_str_t {
     obj_t obj;
     int length;
     char *chars;
+    uint32_t hash;
 };
 
 obj_str_t *take_string(char *chars, int length);

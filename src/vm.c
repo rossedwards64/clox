@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "table.h"
 #include "vm.h"
 #include "chunk.h"
 #include "compiler.h"
@@ -39,10 +40,12 @@ void init_vm()
 {
     reset_stack();
     vm.objects = NULL;
+    init_table(&vm.strings);
 }
 
 void free_vm()
 {
+    free_table(&vm.strings);
     free_objects();
 }
 

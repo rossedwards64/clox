@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "table.h"
 #include "memory.h"
 #include "object.h"
+#include "table.h"
 #include "value.h"
 
 void init_table(table_t *table)
@@ -37,8 +37,8 @@ static entry_t *find_entry(entry_t *entries, int capacity,
         } else if (entry->key == key) {
             return entry;
         }
+        index = (index + 1) % capacity;
     }
-    index = (index + 1) % capacity;
 }
 
 bool table_get(table_t *table, obj_str_t *key, value_t *value)

@@ -28,4 +28,4 @@ void table_add_all(table_t *from, table_t *to);
 obj_str_t *table_find_string(table_t *table, const char *chars,
                              int length, uint32_t hash);
 
-#endif // TABLE_H_
+#endif// TABLE_H_

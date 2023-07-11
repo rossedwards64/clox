@@ -1,0 +1,5 @@
+func getClock() {
+  print clock();
+}
+
+getClock();

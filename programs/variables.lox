@@ -1,0 +1,11 @@
+let a = "wowee";
+
+{
+  let b = "nowee";
+  {
+    let c = "howee";
+    print a + b + c;
+  }
+  let c = "gowee";
+  print a + b + c;
+}

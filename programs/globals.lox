@@ -1,0 +1,8 @@
+let a = "wowee";
+print a;
+let b = "howee";
+print b;
+let c = a + b;
+
+print a + b;
+print c;

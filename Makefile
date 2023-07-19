@@ -2,7 +2,7 @@ CC 	    := gcc
 BIN     ?= clox
 
 LDLIBS  :=
-CFLAGS  := -std=c17 -Wall -Wpedantic -Wextra -g3 -pedantic
+CFLAGS  := -std=c17 -Wall -Wpedantic -Wextra -Wno-unused-parameter -g3 -pedantic
 
 SRCDIR  ?= src
 SRCS    := $(wildcard $(SRCDIR)/*.c)

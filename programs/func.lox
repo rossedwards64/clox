@@ -1,0 +1,6 @@
+func coolFunction() {
+    print "Very cool!";
+    return 5;
+}
+
+coolFunction();

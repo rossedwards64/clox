@@ -22,15 +22,15 @@ typedef struct {
 
 typedef enum {
     PREC_NONE,
-    PREC_ASSIGNMENT,// =
-    PREC_OR,// or
-    PREC_AND,// and
-    PREC_EQUALITY,// == !=
-    PREC_COMPARISON,// < > <= >=
-    PREC_TERM,// + -
-    PREC_FACTOR,// * /
-    PREC_UNARY,// ! -
-    PREC_CALL,// . ()
+    PREC_ASSIGNMENT, // =
+    PREC_OR,         // or
+    PREC_AND,        // and
+    PREC_EQUALITY,   // == !=
+    PREC_COMPARISON, // < > <= >=
+    PREC_TERM,       // + -
+    PREC_FACTOR,     // * /
+    PREC_UNARY,      // ! -
+    PREC_CALL,       // . ()
     PREC_PRIMARY
 } precedence_t;
 
@@ -47,7 +47,15 @@ typedef struct {
     int depth;
 } local_t;
 
-typedef struct {
+typedef enum {
+    TYPE_FUNCTION,
+    TYPE_SCRIPT
+} function_type_t;
+
+typedef struct compiler_t {
+    struct compiler_t *enclosing;
+    obj_function_t *function;
+    function_type_t type;
     local_t locals[UINT8_COUNT];
     int local_count;
     int scope_depth;
@@ -59,7 +67,7 @@ chunk_t *compiling_chunk;
 
 static chunk_t *current_chunk()
 {
-    return compiling_chunk;
+    return &current->function->chunk;
 }
 
 static void error_at(token_t *token, const char *message)
@@ -151,6 +159,7 @@ static void emit_loop(int loop_start)
 
 static void emit_return()
 {
+    emit_byte(OP_NIL);
     emit_byte(OP_RETURN);
 }
 
@@ -180,21 +189,39 @@ static void patch_jump(int offset)
     current_chunk()->code[offset + 1] = jump & 0xFF;
 }
 
-static void init_compiler(compiler_t *compiler)
+static void init_compiler(compiler_t *compiler, function_type_t type)
 {
+    compiler->enclosing = current;
+    compiler->function = NULL;
+    compiler->type = type;
     compiler->local_count = 0;
     compiler->scope_depth = 0;
+    compiler->function = new_function();
     current = compiler;
+    if (type != TYPE_SCRIPT) {
+        current->function->name = copy_string(parser.previous.start,
+                                              parser.previous.length);
+    }
+
+    local_t *local = &current->locals[current->local_count++];
+    local->depth = 0;
+    local->name.start = "";
+    local->name.length = 0;
 }
 
-static void end_compiler()
+static obj_function_t *end_compiler()
 {
     emit_return();
+    obj_function_t *function = current->function;
 #ifdef DEBUG_PRINT_CODE
     if (!parser.had_error) {
-        disassemble_chunk(current_chunk(), "code");
+        disassemble_chunk(current_chunk(),
+                          function->name != NULL ?
+                          function->name->chars : "<script>");
     }
 #endif
+    current = current->enclosing;
+    return function;
 }
 
 static void begin_scope()
@@ -240,6 +267,14 @@ static void binary(bool can_assign)
     }
 }
 
+static uint8_t argument_list();
+
+static void call(bool can_assign)
+{
+    uint8_t arg_count = argument_list();
+    emit_bytes(OP_CALL, arg_count);
+}
+
 static void literal(bool can_assign)
 {
     switch (parser.previous.type) {
@@ -266,6 +301,41 @@ static void block()
 static uint8_t parse_variable(const char *error_message);
 static void define_variable(uint8_t global);
 
+static void function(function_type_t type)
+{
+    compiler_t compiler;
+    init_compiler(&compiler, type);
+    begin_scope();
+
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+    if (!check(TOKEN_RIGHT_PAREN)) {
+        do {
+            current->function->arity++;
+            if (current->function->arity > 255) {
+                error_at_current("Can't have more than 255 parameters.");
+            }
+            uint8_t constant = parse_variable("Expect parameter name.");
+            define_variable(constant);
+        } while (match(TOKEN_COMMA));
+    }
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
+    block();
+
+    obj_function_t *function = end_compiler();
+    emit_bytes(OP_CONSTANT, make_constant(OBJ_VAL(function)));
+}
+
+static void mark_initialized();
+
+static void func_declaration()
+{
+    uint8_t global = parse_variable("Expect function name.");
+    mark_initialized();
+    function(TYPE_FUNCTION);
+    define_variable(global);
+}
+
 static void let_declaration()
 {
     uint8_t global = parse_variable("Expect variable name");
@@ -288,6 +358,21 @@ static void print_statement()
     emit_byte(OP_PRINT);
 }
 
+static void return_statement()
+{
+    if (current->type == TYPE_SCRIPT) {
+        error("Can't return from top-level code.");
+    }
+
+    if (match(TOKEN_SEMICOLON)) {
+        emit_return();
+    } else {
+        expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
+        emit_byte(OP_RETURN);
+    }
+}
+
 static void synchronize()
 {
     parser.panic_mode = false;
@@ -306,13 +391,15 @@ static void synchronize()
             default:
                 ;
         }
+        advance();
     }
-    advance();
 }
 
 static void declaration()
 {
-    if (match(TOKEN_LET)) {
+    if (match(TOKEN_FUNC)) {
+        func_declaration();
+    } else if (match(TOKEN_LET)) {
         let_declaration();
     } else {
         statement();
@@ -331,6 +418,8 @@ static void statement()
         print_statement();
     } else if (match(TOKEN_IF)) {
         if_statement();
+    } else if (match(TOKEN_RETURN)) {
+        return_statement();
     } else if (match(TOKEN_FOR)) {
         for_statement();
     } else if (match(TOKEN_WHILE)) {
@@ -494,7 +583,7 @@ static void and_(bool can_assign);
 static void or_(bool can_assign);
 
 parse_rule_t rules[] = {
-    [TOKEN_LEFT_PAREN] =    {grouping, NULL, PREC_NONE},
+    [TOKEN_LEFT_PAREN] =    {grouping, call, PREC_CALL},
     [TOKEN_RIGHT_PAREN] =   {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_BRACE] =    {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_BRACE] =   {NULL, NULL, PREC_NONE},
@@ -521,7 +610,7 @@ parse_rule_t rules[] = {
     [TOKEN_ELSE] =          {NULL, NULL, PREC_NONE},
     [TOKEN_FALSE] =         {literal, NULL, PREC_NONE},
     [TOKEN_FOR] =           {NULL, NULL, PREC_NONE},
-    [TOKEN_FUNC] =          {NULL, NULL, PREC_NONE},
+    [TOKEN_FUNC] =          {grouping, call, PREC_CALL},
     [TOKEN_IF] =            {NULL, NULL, PREC_NONE},
     [TOKEN_NIL] =           {literal, NULL, PREC_NONE},
     [TOKEN_OR] =            {NULL, or_, PREC_NONE},
@@ -580,6 +669,8 @@ static int resolve_local(compiler_t *compiler, token_t *name)
             return i;
         }
     }
+
+    return -1;
 }
 
 static void add_local(token_t name)
@@ -620,6 +711,7 @@ static uint8_t parse_variable(const char *error_message)
 
 static void mark_initialized()
 {
+    if (current->scope_depth == 0) return;
     current->locals[current->local_count - 1].depth = current->scope_depth;
 }
 
@@ -630,6 +722,22 @@ static void define_variable(uint8_t global)
         return;
     }
     emit_bytes(OP_DEFINE_GLOBAL, global);
+}
+
+static uint8_t argument_list()
+{
+    uint8_t arg_count = 0;
+    if (!check(TOKEN_RIGHT_PAREN)) {
+        do {
+            expression();
+            if (arg_count == 255) {
+                error("Can't have more than 255 arguments.");
+            }
+            arg_count++;
+        } while (match(TOKEN_COMMA));
+    }
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
+    return arg_count;
 }
 
 static void and_(bool can_assign)
@@ -659,12 +767,11 @@ static parse_rule_t *get_rule(token_type_t type)
     return &rules[type];
 }
 
-bool compile(const char *source, chunk_t *chunk)
+obj_function_t *compile(const char *source)
 {
     init_scanner(source);
     compiler_t compiler;
-    init_compiler(&compiler);
-    compiling_chunk = chunk;
+    init_compiler(&compiler, TYPE_SCRIPT);
     parser.had_error = false;
     parser.panic_mode = false;
     advance();
@@ -673,6 +780,6 @@ bool compile(const char *source, chunk_t *chunk)
         declaration();
     }
 
-    end_compiler();
-    return !parser.had_error;
+    obj_function_t *function = end_compiler();
+    return parser.had_error ? NULL : function;
 }

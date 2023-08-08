@@ -1,0 +1,21 @@
+func remainder(num, divisor) {
+    return (num - divisor * (num / divisor));
+}
+
+func power(num, exponent) {
+    if (num == 0) return 1;
+    let m = 0;
+    if (remainder(exponent, 2) == 0) {
+        if (exponent == 2) {
+            return num * num;
+        }
+        return power(power(num, exponent / 2), 2);
+    } else {
+        return num * power(num, exponent - 1);
+    }
+}
+
+let num = 2;
+let exponent = 4;
+
+print power(num, exponent);

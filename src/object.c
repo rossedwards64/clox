@@ -20,10 +20,25 @@ static obj_t *allocate_object(size_t size, obj_type_t type)
     return object;
 }
 
+obj_closure_t *new_closure(obj_function_t *function)
+{
+    obj_upvalue_t **upvalues = ALLOCATE(obj_upvalue_t *,
+                                        function->upvalue_count);
+    for (int i = 0; i < function->upvalue_count; i++) {
+        upvalues[i] = NULL;
+    }
+    obj_closure_t *closure = ALLOCATE_OBJ(obj_closure_t, OBJ_CLOSURE);
+    closure->function = function;
+    closure->upvalues = upvalues;
+    closure->upvalue_count = function->upvalue_count;
+    return closure;
+}
+
 obj_function_t *new_function()
 {
     obj_function_t *function = ALLOCATE_OBJ(obj_function_t, OBJ_FUNCTION);
     function->arity = 0;
+    function->upvalue_count = 0;
     function->name = NULL;
     init_chunk(&function->chunk);
     return function;
@@ -81,6 +96,15 @@ obj_str_t *copy_string(const char *chars, int length)
     return allocate_string(heap_chars, length, hash);
 }
 
+obj_upvalue_t *new_upvalue(value_t *slot)
+{
+    obj_upvalue_t *upvalue = ALLOCATE_OBJ(obj_upvalue_t, OBJ_UPVALUE);
+    upvalue->location = slot;
+    upvalue->closed = NIL_VAL;
+    upvalue->next = NULL;
+    return upvalue;
+}
+
 static void print_function(obj_function_t *function)
 {
     if (function->name == NULL) {
@@ -93,6 +117,9 @@ static void print_function(obj_function_t *function)
 void print_object(value_t value)
 {
     switch (OBJ_TYPE(value)) {
+        case OBJ_CLOSURE:
+            print_function(AS_CLOSURE(value)->function);
+            break;
         case OBJ_FUNCTION:
             print_function(AS_FUNCTION(value));
             break;
@@ -101,6 +128,9 @@ void print_object(value_t value)
             break;
         case OBJ_STRING:
             printf("%s", AS_CSTRING(value));
+            break;
+        case OBJ_UPVALUE:
+            printf("upvalue");
             break;
     }
 }

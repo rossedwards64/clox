@@ -1,0 +1,14 @@
+func counter() {
+  let i = 0;
+
+  func incrementCounter() {
+    i = i + 1;
+  }
+
+  incrementCounter();
+  incrementCounter();
+  incrementCounter();
+  return incrementCounter();
+}
+
+counter();

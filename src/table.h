@@ -27,5 +27,7 @@ bool table_delete(table_t *table, obj_str_t *key);
 void table_add_all(table_t *from, table_t *to);
 obj_str_t *table_find_string(table_t *table, const char *chars,
                              int length, uint32_t hash);
+void table_remove_white(table_t *table);
+void mark_table(table_t *table);
 
 #endif// TABLE_H_

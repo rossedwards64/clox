@@ -5,5 +5,6 @@
 #include "object.h"
 
 obj_function_t *compile(const char *source);
+void mark_compiler_roots();
 
 #endif// COMPILER_H_

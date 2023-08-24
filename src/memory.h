@@ -2,6 +2,7 @@
 #define MEMORY_H_
 
 #include "common.h"
+#include "value.h"
 
 #define ALLOCATE(type, count) \
     (type *)reallocate(NULL, 0, sizeof(type) * (count))
@@ -19,6 +20,9 @@
     reallocate(ptr, sizeof(type) * (old_count), 0)
 
 void *reallocate(void *ptr, size_t old_size, size_t new_size);
+void mark_object(obj_t *object);
+void mark_value(value_t value);
+void collect_garbage();
 void free_objects();
 
 #endif// MEMORY_H_

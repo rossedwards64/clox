@@ -289,6 +289,21 @@ static void call(bool can_assign)
     emit_bytes(OP_CALL, arg_count);
 }
 
+static uint8_t identifier_constant(token_t *name);
+
+static void dot(bool can_assign)
+{
+    consume(TOKEN_IDENTIFIER, "Expect property name after '.'.");
+    uint8_t name = identifier_constant(&parser.previous);
+
+    if (can_assign && match(TOKEN_EQUAL)) {
+        expression();
+        emit_bytes(OP_SET_PROPERTY, name);
+    } else {
+        emit_bytes(OP_GET_PROPERTY, name);
+    }
+}
+
 static void literal(bool can_assign)
 {
     switch (parser.previous.type) {
@@ -346,6 +361,20 @@ static void function(function_type_t type)
 }
 
 static void mark_initialized();
+static void declare_variable();
+
+static void class_declaration()
+{
+    consume(TOKEN_IDENTIFIER, "Expect class name.");
+    uint8_t name_constant = identifier_constant(&parser.previous);
+    declare_variable();
+
+    emit_bytes(OP_CLASS, name_constant);
+    define_variable(name_constant);
+
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+}
 
 static void func_declaration()
 {
@@ -416,7 +445,9 @@ static void synchronize()
 
 static void declaration()
 {
-    if (match(TOKEN_FUNC)) {
+    if (match(TOKEN_CLASS)) {
+        class_declaration();
+    } else if (match(TOKEN_FUNC)) {
         func_declaration();
     } else if (match(TOKEN_LET)) {
         let_declaration();
@@ -558,7 +589,6 @@ static void string(bool can_assign)
                                       parser.previous.length - 2)));
 }
 
-static uint8_t identifier_constant(token_t *name);
 static int resolve_local(compiler_t *compiler, token_t *name);
 static int resolve_upvalue(compiler_t *compiler, token_t *name);
 static int add_upvalue(compiler_t *compiler, uint8_t index,
@@ -608,13 +638,14 @@ static void unary(bool can_assign)
 static void and_(bool can_assign);
 static void or_(bool can_assign);
 
+
 parse_rule_t rules[] = {
     [TOKEN_LEFT_PAREN] =    {grouping, call, PREC_CALL},
     [TOKEN_RIGHT_PAREN] =   {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_BRACE] =    {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_BRACE] =   {NULL, NULL, PREC_NONE},
     [TOKEN_COMMA] =         {NULL, NULL, PREC_NONE},
-    [TOKEN_DOT] =           {NULL, NULL, PREC_NONE},
+    [TOKEN_DOT] =           {NULL, dot, PREC_CALL},
     [TOKEN_MINUS] =         {unary, binary, PREC_TERM},
     [TOKEN_PLUS] =          {NULL, binary, PREC_TERM},
     [TOKEN_SEMICOLON] =     {NULL, NULL, PREC_NONE},

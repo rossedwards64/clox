@@ -151,6 +151,7 @@ void print_object(value_t value)
         case OBJ_INSTANCE:
             printf("%s instance",
                    AS_INSTANCE(value)->klass->name->chars);
+            break;
         case OBJ_NATIVE:
             printf("<native fn>");
             break;

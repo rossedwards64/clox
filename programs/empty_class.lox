@@ -1,4 +1,7 @@
-class CoolClass {}
+class CoolClass {
+  bacon() {}
+  eggs() {}
+}
 
 let klass = CoolClass();
 

@@ -1,0 +1,19 @@
+class FunctionFactory {
+  init() {
+    func f() {
+      print "produced function";
+    }
+
+    this.function = f;
+  }
+
+  method() {
+    print "member function";
+  }
+}
+
+let factory = FunctionFactory();
+let function = FunctionFactory().function;
+factory.function();
+factory.method();
+function();

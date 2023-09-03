@@ -1,0 +1,18 @@
+class Scone {
+  init(first, second) {
+    this.first = first;
+    this.second = second;
+  }
+
+  topping() {
+    print "scone with " + this.first + " and " + this.second;
+  }
+
+  instance() {
+    print this;
+  }
+}
+
+let scone = Scone("berries", "cream");
+scone.instance();
+scone.topping();

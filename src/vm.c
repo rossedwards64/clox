@@ -91,6 +91,9 @@ void free_vm()
 static bool call(obj_closure_t *closure, int arg_count);
 static bool call_value(value_t callee, int arg_count);
 static bool invoke(obj_str_t *name, int arg_count);
+static bool invoke_from_class(obj_class_t *klass,
+                              obj_str_t *name,
+                              int arg_count);
 static obj_upvalue_t *capture_upvalue(value_t *local);
 static void close_upvalues(value_t *last);
 static void define_method(obj_str_t *name);
@@ -221,6 +224,15 @@ static interpret_result_t run()
                 push(value);
                 break;
             }
+            case OP_GET_SUPER: {
+                obj_str_t *name = READ_STRING();
+                obj_class_t *superclass = AS_CLASS(pop());
+
+                if (!bind_method(superclass, name)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
             case OP_EQUAL: {
                 value_t b = pop();
                 value_t a = pop();
@@ -292,6 +304,16 @@ static interpret_result_t run()
                 frame = &vm.frames[vm.frame_count - 1];
                 break;
             }
+            case OP_SUPER_INVOKE: {
+                obj_str_t *method = READ_STRING();
+                int arg_count = READ_BYTE();
+                obj_class_t *superclass = AS_CLASS(pop());
+                if (!invoke_from_class(superclass, method, arg_count)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                frame = &vm.frames[vm.frame_count - 1];
+                break;
+            }
             case OP_CLOSURE: {
                 obj_function_t *function = AS_FUNCTION(READ_CONSTANT());
                 obj_closure_t *closure = new_closure(function);
@@ -327,6 +349,19 @@ static interpret_result_t run()
             }
             case OP_CLASS: {
                 push(OBJ_VAL(new_class(READ_STRING())));
+                break;
+            }
+            case OP_INHERIT: {
+                value_t superclass = peek(1);
+                if (!IS_CLASS(superclass)) {
+                    runtime_error("Superclass must be a class.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                obj_class_t *subclass = AS_CLASS(peek(0));
+                table_add_all(&AS_CLASS(superclass)->methods,
+                              &subclass->methods);
+                pop(); // Subclass
                 break;
             }
             case OP_METHOD: {
@@ -447,13 +482,13 @@ static bool invoke_from_class(obj_class_t *klass, obj_str_t *name,
 
 static bool invoke(obj_str_t *name, int arg_count)
 {
-    value_t reciever = peek(arg_count);
-    if (!IS_INSTANCE(reciever)) {
+    value_t receiver = peek(arg_count);
+    if (!IS_INSTANCE(receiver)) {
         runtime_error("Only instances have methods.");
         return false;
     }
 
-    obj_instance_t *instance = AS_INSTANCE(reciever);
+    obj_instance_t *instance = AS_INSTANCE(receiver);
 
     value_t value;
     if (table_get(&instance->fields, name, &value)) {
@@ -494,6 +529,14 @@ static obj_upvalue_t *capture_upvalue(value_t *local)
     }
 
     obj_upvalue_t *created_upvalue = new_upvalue(local);
+    created_upvalue->next = upvalue;
+
+    if (prev_upvalue == NULL) {
+        vm.open_upvalues = created_upvalue;
+    } else {
+        prev_upvalue->next = created_upvalue;
+    }
+
     return created_upvalue;
 }
 
